@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { mockVacancies } from "@/data/mockVacancies";
+import { mockVacancies, type Vacancy } from "@/data/mockVacancies";
 import JobCard from "./JobCard";
+import JobDetailPanel from "./JobDetailPanel";
 import SearchBar from "./SearchBar";
 import FilterBar, { type Filters } from "./FilterBar";
 
@@ -17,6 +18,7 @@ export default function JobGrid() {
     salaris: "",
     niveau: "",
   });
+  const [selectedVacancy, setSelectedVacancy] = useState<Vacancy | null>(null);
 
   const handleSearch = () => {
     setActiveQuery(query);
@@ -39,7 +41,6 @@ export default function JobGrid() {
       const matchContract = !filters.contracttype || v.contracttype === filters.contracttype;
       const matchNiveau = !filters.niveau || v.niveau === filters.niveau;
 
-      // Salaris filter: check if vacancy salaris overlaps with selected range
       let matchSalaris = true;
       if (filters.salaris) {
         const salarisNum = parseInt(v.salaris.replace(/[^0-9]/g, "").slice(0, 4));
@@ -78,7 +79,7 @@ export default function JobGrid() {
       {/* Filterbar */}
       <FilterBar filters={filters} onChange={setFilters} totalResults={filtered.length} />
 
-      {/* Vacature grid */}
+      {/* Vacatures */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {filtered.length === 0 ? (
           <div className="text-center py-20">
@@ -98,10 +99,38 @@ export default function JobGrid() {
               Wis alle filters
             </button>
           </div>
+        ) : selectedVacancy ? (
+          /* Split-view: cards links, detail rechts */
+          <div className="flex gap-5 items-start">
+            {/* Links: scrollbare kaartjes */}
+            <div className="hidden md:flex flex-col gap-4 w-[380px] xl:w-[420px] shrink-0">
+              {filtered.map((vacancy) => (
+                <JobCard
+                  key={vacancy.id}
+                  vacancy={vacancy}
+                  isSelected={vacancy.id === selectedVacancy.id}
+                  onSelect={() => setSelectedVacancy(vacancy)}
+                />
+              ))}
+            </div>
+
+            {/* Rechts: detail panel (sticky) */}
+            <div className="flex-1 sticky top-20 min-w-0">
+              <JobDetailPanel
+                vacancy={selectedVacancy}
+                onClose={() => setSelectedVacancy(null)}
+              />
+            </div>
+          </div>
         ) : (
+          /* Normaal grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((vacancy) => (
-              <JobCard key={vacancy.id} vacancy={vacancy} />
+              <JobCard
+                key={vacancy.id}
+                vacancy={vacancy}
+                onSelect={() => setSelectedVacancy(vacancy)}
+              />
             ))}
           </div>
         )}
