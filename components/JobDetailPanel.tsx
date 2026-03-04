@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { Vacancy } from "@/data/mockVacancies";
 
 const CONTRACT_COLORS: Record<string, string> = {
@@ -11,27 +10,17 @@ const CONTRACT_COLORS: Record<string, string> = {
   Parttime: "bg-pink-100 text-pink-700",
 };
 
-type Tab = "omschrijving" | "vereisten" | "bedrijf";
-
 type Props = {
   vacancy: Vacancy;
   onClose: () => void;
 };
 
 export default function JobDetailPanel({ vacancy, onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>("omschrijving");
-
   const contractColor = CONTRACT_COLORS[vacancy.contracttype] ?? "bg-gray-100 text-gray-600";
   const initials = vacancy.bedrijf.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "omschrijving", label: "Omschrijving" },
-    { key: "vereisten", label: "Vereisten" },
-    { key: "bedrijf", label: "Over het bedrijf" },
-  ];
-
   return (
-    <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col overflow-hidden">
+    <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-sm overflow-hidden">
       {/* Header */}
       <div className="p-6 border-b border-[#E5E7EB]">
         <div className="flex items-start gap-4">
@@ -77,74 +66,57 @@ export default function JobDetailPanel({ vacancy, onClose }: Props) {
             Opslaan
           </button>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 mt-4 bg-[#F8FAFC] rounded-xl p-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
-                activeTab === tab.key
-                  ? "bg-white text-[#1E2A4A] shadow-sm"
-                  : "text-[#6B7280] hover:text-[#1F2937]"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* Tab content */}
-      <div className="p-6 overflow-y-auto">
-        {activeTab === "omschrijving" && (
-          <div className="flex flex-col gap-5">
-            <p className="text-sm text-[#4B5563] leading-relaxed">{vacancy.beschrijving}</p>
-            <div>
-              <h3 className="text-sm font-semibold text-[#1E2A4A] mb-3">Wat ga je doen?</h3>
-              <ul className="flex flex-col gap-2">
-                {vacancy.taken.map((taak, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-[#4B5563]">
-                    <span className="text-[#10B981] mt-0.5 shrink-0">✓</span>
-                    {taak}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
+      {/* Content — alles op één pagina */}
+      <div className="p-6 flex flex-col gap-8">
 
-        {activeTab === "vereisten" && (
-          <div>
-            <h3 className="text-sm font-semibold text-[#1E2A4A] mb-3">Wat zoeken wij?</h3>
-            <ul className="flex flex-col gap-3">
-              {vacancy.vereisten.map((eis, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-[#F0FDF4] border border-[#10B981] flex items-center justify-center shrink-0 mt-0.5">
-                    <span className="text-[#10B981] text-xs font-bold">{i + 1}</span>
-                  </div>
-                  <span className="text-sm text-[#4B5563]">{eis}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* Omschrijving */}
+        <div>
+          <h3 className="text-base font-bold text-[#1E2A4A] mb-3">Omschrijving</h3>
+          <p className="text-sm text-[#4B5563] leading-relaxed">{vacancy.beschrijving}</p>
+        </div>
 
-        {activeTab === "bedrijf" && (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#1E2A4A] flex items-center justify-center shrink-0">
-                <span className="text-white text-sm font-bold">{initials}</span>
-              </div>
-              <div>
-                <p className="font-semibold text-[#1E2A4A]">{vacancy.bedrijf}</p>
-                <p className="text-xs text-[#6B7280]">{vacancy.sector}</p>
-              </div>
+        {/* Taken */}
+        <div>
+          <h3 className="text-base font-bold text-[#1E2A4A] mb-3">Wat ga je doen?</h3>
+          <ul className="flex flex-col gap-2">
+            {vacancy.taken.map((taak, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#4B5563]">
+                <span className="text-[#10B981] mt-0.5 shrink-0">✓</span>
+                {taak}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Vereisten */}
+        <div>
+          <h3 className="text-base font-bold text-[#1E2A4A] mb-3">Vereisten</h3>
+          <ul className="flex flex-col gap-3">
+            {vacancy.vereisten.map((eis, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-[#F0FDF4] border border-[#10B981] flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-[#10B981] text-xs font-bold">{i + 1}</span>
+                </div>
+                <span className="text-sm text-[#4B5563]">{eis}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Over het bedrijf */}
+        <div className="border-t border-[#E5E7EB] pt-6">
+          <h3 className="text-base font-bold text-[#1E2A4A] mb-3">Over {vacancy.bedrijf}</h3>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-[#1E2A4A] flex items-center justify-center shrink-0">
+              <span className="text-white text-xs font-bold">{initials}</span>
             </div>
-            <p className="text-sm text-[#4B5563] leading-relaxed">{vacancy.bedrijfsBeschrijving}</p>
+            <p className="text-xs text-[#6B7280]">{vacancy.sector}</p>
           </div>
-        )}
+          <p className="text-sm text-[#4B5563] leading-relaxed">{vacancy.bedrijfsBeschrijving}</p>
+        </div>
+
       </div>
     </div>
   );
