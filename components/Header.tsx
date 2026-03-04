@@ -1,10 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+type User = { naam: string; email: string };
 
 export default function Header() {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("kodanext_user");
+    if (stored) setUser(JSON.parse(stored));
+
+    const onStorage = () => {
+      const u = localStorage.getItem("kodanext_user");
+      setUser(u ? JSON.parse(u) : null);
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("kodanext_auth", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("kodanext_auth", onStorage);
+    };
+  }, []);
+
+  const uitloggen = () => {
+    localStorage.removeItem("kodanext_user");
+    setUser(null);
+    router.push("/");
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-[#1E2A4A] shadow-md">
@@ -19,26 +46,34 @@ export default function Header() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6">
-            <Link
-              href="/over-ons"
-              className="text-gray-300 hover:text-white text-sm font-medium transition-colors"
-            >
+            <Link href="/over-ons" className="text-gray-300 hover:text-white text-sm font-medium transition-colors">
               Over ons
             </Link>
-            <Link
-              href="/werkgevers"
-              className="bg-[#10B981] hover:bg-[#059669] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
+            <Link href="/werkgevers" className="text-gray-300 hover:text-white text-sm font-medium transition-colors">
               Voor Werkgevers
             </Link>
+
+            {user ? (
+              <div className="flex items-center gap-3">
+                <Link href="/profiel" className="flex items-center gap-2 text-sm text-white font-medium hover:text-[#10B981] transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-[#10B981] flex items-center justify-center text-xs font-bold">
+                    {user.naam.charAt(0).toUpperCase()}
+                  </div>
+                  {user.naam}
+                </Link>
+                <button onClick={uitloggen} className="text-gray-400 hover:text-white text-xs transition-colors">
+                  Uitloggen
+                </button>
+              </div>
+            ) : (
+              <Link href="/login" className="bg-[#10B981] hover:bg-[#059669] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+                Inloggen
+              </Link>
+            )}
           </nav>
 
           {/* Mobile hamburger */}
-          <button
-            className="md:hidden text-white p-2"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Menu openen"
-          >
+          <button className="md:hidden text-white p-2" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu openen">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {menuOpen ? (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -52,20 +87,16 @@ export default function Header() {
         {/* Mobile menu */}
         {menuOpen && (
           <div className="md:hidden pb-4 flex flex-col gap-3">
-            <Link
-              href="/over-ons"
-              className="text-gray-300 hover:text-white text-sm font-medium py-2"
-              onClick={() => setMenuOpen(false)}
-            >
-              Over ons
-            </Link>
-            <Link
-              href="/werkgevers"
-              className="bg-[#10B981] hover:bg-[#059669] text-white text-sm font-semibold px-4 py-2 rounded-lg text-center transition-colors"
-              onClick={() => setMenuOpen(false)}
-            >
-              Voor Werkgevers
-            </Link>
+            <Link href="/over-ons" className="text-gray-300 hover:text-white text-sm font-medium py-2" onClick={() => setMenuOpen(false)}>Over ons</Link>
+            <Link href="/werkgevers" className="text-gray-300 hover:text-white text-sm font-medium py-2" onClick={() => setMenuOpen(false)}>Voor Werkgevers</Link>
+            {user ? (
+              <>
+                <Link href="/profiel" className="text-white text-sm font-medium py-2" onClick={() => setMenuOpen(false)}>Mijn profiel ({user.naam})</Link>
+                <button onClick={() => { uitloggen(); setMenuOpen(false); }} className="text-left text-gray-400 text-sm py-2">Uitloggen</button>
+              </>
+            ) : (
+              <Link href="/login" className="bg-[#10B981] text-white text-sm font-semibold px-4 py-2 rounded-lg text-center" onClick={() => setMenuOpen(false)}>Inloggen</Link>
+            )}
           </div>
         )}
       </div>
