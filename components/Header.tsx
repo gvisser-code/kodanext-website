@@ -34,8 +34,10 @@ export default function Header() {
   }, []);
 
   const uitloggen = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {}
     window.location.href = "/";
   };
 
