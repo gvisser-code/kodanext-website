@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 type User = { naam: string; email: string };
 
@@ -12,46 +13,47 @@ export default function Header() {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("kodanext_user");
-    if (stored) setUser(JSON.parse(stored));
+    const supabase = createClient();
 
-    const onStorage = () => {
-      const u = localStorage.getItem("kodanext_user");
-      setUser(u ? JSON.parse(u) : null);
+    const laadUser = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        setUser({
+          naam: authUser.user_metadata?.naam ?? authUser.email?.split("@")[0] ?? "Gebruiker",
+          email: authUser.email ?? "",
+        });
+      } else {
+        setUser(null);
+      }
     };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("kodanext_auth", onStorage);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("kodanext_auth", onStorage);
-    };
+
+    laadUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => laadUser());
+    return () => subscription.unsubscribe();
   }, []);
 
-  const uitloggen = () => {
-    localStorage.removeItem("kodanext_user");
+  const uitloggen = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
     setUser(null);
     router.push("/");
+    router.refresh();
   };
 
   return (
     <header className="sticky top-0 z-50 bg-[#1E2A4A] shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <span className="text-2xl font-bold text-white tracking-tight">
               Koda<span className="text-[#10B981]">Next</span>
             </span>
           </Link>
 
-          {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/over-ons" className="text-gray-300 hover:text-white text-sm font-medium transition-colors">
-              Over ons
-            </Link>
-            <Link href="/werkgevers" className="text-gray-300 hover:text-white text-sm font-medium transition-colors">
-              Voor Werkgevers
-            </Link>
+            <Link href="/over-ons" className="text-gray-300 hover:text-white text-sm font-medium transition-colors">Over ons</Link>
+            <Link href="/werkgevers" className="text-gray-300 hover:text-white text-sm font-medium transition-colors">Voor Werkgevers</Link>
 
             {user ? (
               <div className="flex items-center gap-3">
@@ -72,7 +74,6 @@ export default function Header() {
             )}
           </nav>
 
-          {/* Mobile hamburger */}
           <button className="md:hidden text-white p-2" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu openen">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {menuOpen ? (
@@ -84,7 +85,6 @@ export default function Header() {
           </button>
         </div>
 
-        {/* Mobile menu */}
         {menuOpen && (
           <div className="md:hidden pb-4 flex flex-col gap-3">
             <Link href="/over-ons" className="text-gray-300 hover:text-white text-sm font-medium py-2" onClick={() => setMenuOpen(false)}>Over ons</Link>

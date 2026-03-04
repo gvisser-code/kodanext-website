@@ -6,6 +6,7 @@ import Link from "next/link";
 import CVUpload from "@/components/CVUpload";
 import BigFiveResults from "@/components/BigFiveResults";
 import { TRAIT_LABELS, type Trait } from "@/data/bigFiveQuestions";
+import { createClient } from "@/lib/supabase/client";
 
 type User = { naam: string; email: string };
 
@@ -15,18 +16,45 @@ export default function ProfielPage() {
   const [cvFile, setCvFile] = useState<string>("");
   const [big5, setBig5] = useState<Record<Trait, number> | null>(null);
   const [toonResultaten, setToonResultaten] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const u = localStorage.getItem("kodanext_user");
-    if (!u) { router.push("/login"); return; }
-    setUser(JSON.parse(u));
+    const laadProfiel = async () => {
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
 
-    const cv = localStorage.getItem("kodanext_cv");
-    if (cv) setCvFile(cv);
+      if (!authUser) { router.push("/login"); return; }
 
-    const b5 = localStorage.getItem("kodanext_big5");
-    if (b5) setBig5(JSON.parse(b5));
+      setUser({
+        naam: authUser.user_metadata?.naam ?? authUser.email?.split("@")[0] ?? "Gebruiker",
+        email: authUser.email ?? "",
+      });
+
+      const { data: profiel } = await supabase
+        .from("profiles")
+        .select("cv_path, big_five")
+        .eq("id", authUser.id)
+        .single();
+
+      if (profiel?.cv_path) setCvFile(profiel.cv_path.split("/").pop() ?? profiel.cv_path);
+      if (profiel?.big_five) setBig5(profiel.big_five);
+
+      setLoading(false);
+    };
+
+    laadProfiel();
   }, [router]);
+
+  const uitloggen = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
+
+  if (loading) {
+    return <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-[#6B7280] text-sm">Laden...</div>;
+  }
 
   if (!user) return null;
 
@@ -70,10 +98,7 @@ export default function ProfielPage() {
         {/* CV Upload */}
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6">
           <h2 className="font-bold text-[#1E2A4A] mb-4">Mijn CV</h2>
-          <CVUpload
-            currentFile={cvFile}
-            onUpload={(filename) => setCvFile(filename)}
-          />
+          <CVUpload currentFile={cvFile} onUpload={(filename) => setCvFile(filename)} />
         </div>
 
         {/* Big Five */}
@@ -81,10 +106,7 @@ export default function ProfielPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-[#1E2A4A]">Big Five Persoonlijkheidstest</h2>
             {big5 && (
-              <button
-                onClick={() => setToonResultaten(!toonResultaten)}
-                className="text-xs text-[#10B981] hover:text-[#059669] font-medium"
-              >
+              <button onClick={() => setToonResultaten(!toonResultaten)} className="text-xs text-[#10B981] hover:text-[#059669] font-medium">
                 {toonResultaten ? "Verbergen" : "Toon scores"}
               </button>
             )}
@@ -111,24 +133,14 @@ export default function ProfielPage() {
           ) : (
             <div className="text-center py-4">
               <p className="text-sm text-[#6B7280] mb-4">Je hebt de test nog niet gedaan.</p>
-              <Link
-                href="/big-five"
-                className="bg-[#10B981] hover:bg-[#059669] text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors"
-              >
+              <Link href="/big-five" className="bg-[#10B981] hover:bg-[#059669] text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors">
                 Start Big Five test
               </Link>
             </div>
           )}
         </div>
 
-        {/* Uitloggen */}
-        <button
-          onClick={() => {
-            localStorage.removeItem("kodanext_user");
-            router.push("/");
-          }}
-          className="text-sm text-[#6B7280] hover:text-red-500 transition-colors text-center"
-        >
+        <button onClick={uitloggen} className="text-sm text-[#6B7280] hover:text-red-500 transition-colors text-center">
           Uitloggen
         </button>
       </div>

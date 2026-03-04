@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { questions, shortQuestions, calculateScores, type Trait } from "@/data/bigFiveQuestions";
 import BigFiveResults from "./BigFiveResults";
+import { createClient } from "@/lib/supabase/client";
 
 const ANTWOORDEN = ["Helemaal mee oneens", "Mee oneens", "Neutraal", "Mee eens", "Helemaal mee eens"];
 
@@ -19,7 +20,7 @@ export default function BigFiveTest() {
     setModus("test");
   };
 
-  const beantwoord = (score: number) => {
+  const beantwoord = async (score: number) => {
     const vraag = vragenlijst[huidigIndex];
     const nieuw = { ...antwoorden, [vraag.id]: score };
     setAntwoorden(nieuw);
@@ -28,8 +29,11 @@ export default function BigFiveTest() {
       setHuidigIndex(huidigIndex + 1);
     } else {
       const scores = calculateScores(nieuw);
-      localStorage.setItem("kodanext_big5", JSON.stringify(scores));
-      window.dispatchEvent(new Event("kodanext_auth"));
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("profiles").update({ big_five: scores }).eq("id", user.id);
+      }
       setModus("resultaat");
     }
   };

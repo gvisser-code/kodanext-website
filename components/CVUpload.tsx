@@ -1,25 +1,44 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type CVUploadProps = {
-  onUpload: (filename: string) => void;
+  onUpload: (path: string) => void;
   currentFile?: string;
 };
 
 export default function CVUpload({ onUpload, currentFile }: CVUploadProps) {
   const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     if (!file) return;
     const allowed = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
     if (!allowed.includes(file.type)) {
-      alert("Alleen PDF of DOCX bestanden zijn toegestaan.");
+      setError("Alleen PDF of DOCX bestanden zijn toegestaan.");
       return;
     }
-    localStorage.setItem("kodanext_cv", file.name);
+
+    setUploading(true);
+    setError("");
+    const supabase = createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError("Je bent niet ingelogd."); setUploading(false); return; }
+
+    const ext = file.name.split(".").pop();
+    const path = `${user.id}/cv.${ext}`;
+
+    const { error: uploadError } = await supabase.storage.from("cvs").upload(path, file, { upsert: true });
+    if (uploadError) { setError("Upload mislukt: " + uploadError.message); setUploading(false); return; }
+
+    await supabase.from("profiles").update({ cv_path: path }).eq("id", user.id);
+
     onUpload(file.name);
+    setUploading(false);
   };
 
   const onDrop = (e: React.DragEvent) => {
@@ -42,10 +61,7 @@ export default function CVUpload({ onUpload, currentFile }: CVUploadProps) {
               <p className="text-xs text-green-600">Geüpload</p>
             </div>
           </div>
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="text-xs text-[#6B7280] hover:text-[#1F2937] underline"
-          >
+          <button onClick={() => inputRef.current?.click()} className="text-xs text-[#6B7280] hover:text-[#1F2937] underline">
             Vervangen
           </button>
         </div>
@@ -54,7 +70,7 @@ export default function CVUpload({ onUpload, currentFile }: CVUploadProps) {
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => !uploading && inputRef.current?.click()}
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
             dragging ? "border-[#10B981] bg-green-50" : "border-[#E5E7EB] hover:border-[#10B981] hover:bg-green-50"
           }`}
@@ -62,11 +78,13 @@ export default function CVUpload({ onUpload, currentFile }: CVUploadProps) {
           <svg className="w-10 h-10 text-[#6B7280] mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
-          <p className="text-sm font-medium text-[#1F2937]">Sleep je CV hierheen</p>
+          <p className="text-sm font-medium text-[#1F2937]">{uploading ? "Uploaden..." : "Sleep je CV hierheen"}</p>
           <p className="text-xs text-[#6B7280] mt-1">of klik om te uploaden</p>
           <p className="text-xs text-[#6B7280] mt-2">PDF of DOCX • max 5 MB</p>
         </div>
       )}
+
+      {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
 
       <input
         ref={inputRef}

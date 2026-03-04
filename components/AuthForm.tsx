@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 type Tab = "inloggen" | "registreren";
 
@@ -12,37 +13,40 @@ export default function AuthForm() {
   const [email, setEmail] = useState("");
   const [wachtwoord, setWachtwoord] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (!email || !wachtwoord) {
-      setError("Vul alle velden in.");
-      return;
-    }
-    if (tab === "registreren" && !naam) {
-      setError("Vul je naam in.");
-      return;
+    const supabase = createClient();
+
+    if (tab === "registreren") {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password: wachtwoord,
+        options: { data: { naam } },
+      });
+      if (error) { setError(error.message); setLoading(false); return; }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: wachtwoord });
+      if (error) { setError("Onjuist e-mailadres of wachtwoord."); setLoading(false); return; }
     }
 
-    const user = { naam: tab === "registreren" ? naam : email.split("@")[0], email };
-    localStorage.setItem("kodanext_user", JSON.stringify(user));
     router.push("/profiel");
+    router.refresh();
   };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-[#E5E7EB] p-8 w-full max-w-md mx-auto">
-      {/* Tabs */}
       <div className="flex mb-6 bg-[#F8FAFC] rounded-xl p-1">
         {(["inloggen", "registreren"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => { setTab(t); setError(""); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-              tab === t
-                ? "bg-white text-[#1E2A4A] shadow-sm"
-                : "text-[#6B7280] hover:text-[#1F2937]"
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === t ? "bg-white text-[#1E2A4A] shadow-sm" : "text-[#6B7280] hover:text-[#1F2937]"
             }`}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -59,6 +63,7 @@ export default function AuthForm() {
               placeholder="Jouw naam"
               value={naam}
               onChange={(e) => setNaam(e.target.value)}
+              required
               className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
             />
           </div>
@@ -71,6 +76,7 @@ export default function AuthForm() {
             placeholder="jouw@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
             className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
           />
         </div>
@@ -82,17 +88,26 @@ export default function AuthForm() {
             placeholder="••••••••"
             value={wachtwoord}
             onChange={(e) => setWachtwoord(e.target.value)}
+            required
+            minLength={6}
             className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
           />
         </div>
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
+        {tab === "registreren" && (
+          <p className="text-xs text-[#6B7280]">
+            Je ontvangt een bevestigingsmail. Klik de link om je account te activeren.
+          </p>
+        )}
+
         <button
           type="submit"
-          className="w-full bg-[#10B981] hover:bg-[#059669] text-white font-semibold py-3 rounded-xl transition-colors text-sm mt-1"
+          disabled={loading}
+          className="w-full bg-[#10B981] hover:bg-[#059669] disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors text-sm mt-1"
         >
-          {tab === "inloggen" ? "Inloggen" : "Account aanmaken"}
+          {loading ? "Bezig..." : tab === "inloggen" ? "Inloggen" : "Account aanmaken"}
         </button>
       </form>
     </div>
