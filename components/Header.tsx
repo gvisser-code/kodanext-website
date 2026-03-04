@@ -36,9 +36,7 @@ export default function Header() {
   const uitloggen = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    setUser(null);
-    router.push("/");
-    router.refresh();
+    window.location.href = "/";
   };
 
   return (
