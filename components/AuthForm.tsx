@@ -58,9 +58,20 @@ export default function AuthForm() {
     }
 
     // Inloggen
-    const { error } = await supabase.auth.signInWithPassword({ email, password: wachtwoord });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: wachtwoord });
     setLoading(false);
-    if (error) { setError("Onjuist e-mailadres of wachtwoord."); return; }
+    if (error) {
+      if (error.message.toLowerCase().includes("email not confirmed")) {
+        setError("Bevestig eerst je e-mailadres via de link in je inbox.");
+      } else {
+        setError("Onjuist e-mailadres of wachtwoord.");
+      }
+      return;
+    }
+    if (!data.session) {
+      setError("Inloggen mislukt. Controleer of je e-mail bevestigd is.");
+      return;
+    }
     router.push("/profiel");
   };
 
