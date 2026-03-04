@@ -30,6 +30,8 @@ export default function AuthForm() {
     setLoading(true);
     const supabase = createClient();
 
+    try {
+
     if (modus === "wachtwoord_vergeten") {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-wachtwoord`,
@@ -73,6 +75,11 @@ export default function AuthForm() {
       return;
     }
     router.push("/profiel");
+
+    } catch (err) {
+      setLoading(false);
+      setError("Er ging iets mis: " + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   if (modus === "wachtwoord_vergeten") {
