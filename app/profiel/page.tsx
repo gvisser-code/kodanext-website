@@ -10,13 +10,31 @@ import { createClient } from "@/lib/supabase/client";
 
 type User = { naam: string; email: string };
 
+type Gegevens = {
+  volledige_naam: string;
+  telefoon: string;
+  geboortedatum: string;
+  email: string;
+};
+
 export default function ProfielPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [userId, setUserId] = useState<string>("");
   const [cvFile, setCvFile] = useState<string>("");
   const [big5, setBig5] = useState<Record<Trait, number> | null>(null);
   const [toonResultaten, setToonResultaten] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const [gegevens, setGegevens] = useState<Gegevens>({
+    volledige_naam: "",
+    telefoon: "",
+    geboortedatum: "",
+    email: "",
+  });
+  const [opslaan, setOpslaan] = useState(false);
+  const [opslaanSucces, setOpslaanSucces] = useState(false);
+  const [opslaanFout, setOpslaanFout] = useState("");
 
   useEffect(() => {
     const laadProfiel = async () => {
@@ -25,6 +43,7 @@ export default function ProfielPage() {
 
       if (!authUser) { router.push("/login"); return; }
 
+      setUserId(authUser.id);
       setUser({
         naam: authUser.user_metadata?.naam ?? authUser.email?.split("@")[0] ?? "Gebruiker",
         email: authUser.email ?? "",
@@ -32,12 +51,19 @@ export default function ProfielPage() {
 
       const { data: profiel } = await supabase
         .from("profiles")
-        .select("cv_path, big_five")
+        .select("cv_path, big_five, volledige_naam, telefoon, geboortedatum")
         .eq("id", authUser.id)
         .single();
 
       if (profiel?.cv_path) setCvFile(profiel.cv_path.split("/").pop() ?? profiel.cv_path);
       if (profiel?.big_five) setBig5(profiel.big_five);
+
+      setGegevens({
+        volledige_naam: profiel?.volledige_naam ?? "",
+        telefoon: profiel?.telefoon ?? "",
+        geboortedatum: profiel?.geboortedatum ?? "",
+        email: authUser.email ?? "",
+      });
 
       setLoading(false);
     };
@@ -53,13 +79,43 @@ export default function ProfielPage() {
     window.location.href = "/";
   };
 
+  const slaGegevensOp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOpslaan(true);
+    setOpslaanFout("");
+    setOpslaanSucces(false);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        volledige_naam: gegevens.volledige_naam || null,
+        telefoon: gegevens.telefoon || null,
+        geboortedatum: gegevens.geboortedatum || null,
+      })
+      .eq("id", userId);
+
+    setOpslaan(false);
+    if (error) {
+      setOpslaanFout("Opslaan mislukt. Probeer het opnieuw.");
+    } else {
+      setOpslaanSucces(true);
+      setTimeout(() => setOpslaanSucces(false), 3000);
+      // Update displaynaam
+      if (gegevens.volledige_naam) {
+        setUser((u) => u ? { ...u, naam: gegevens.volledige_naam } : u);
+      }
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-[#6B7280] text-sm">Laden...</div>;
   }
 
   if (!user) return null;
 
-  const profielCompleet = !!cvFile && !!big5;
+  const displayNaam = gegevens.volledige_naam || user.naam;
+  const profielCompleet = !!cvFile && !!big5 && !!gegevens.volledige_naam && !!gegevens.telefoon && !!gegevens.geboortedatum;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-10 px-4">
@@ -68,10 +124,10 @@ export default function ProfielPage() {
         {/* Header kaart */}
         <div className="bg-[#1E2A4A] rounded-2xl p-6 text-white flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-[#10B981] flex items-center justify-center text-2xl font-bold">
-            {user.naam.charAt(0).toUpperCase()}
+            {displayNaam.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-xl font-bold">{user.naam}</h1>
+            <h1 className="text-xl font-bold">{displayNaam}</h1>
             <p className="text-gray-400 text-sm">{user.email}</p>
             {profielCompleet && (
               <span className="inline-block mt-1 text-xs bg-[#10B981] px-2 py-0.5 rounded-full">
@@ -85,16 +141,78 @@ export default function ProfielPage() {
         {!profielCompleet && (
           <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5">
             <p className="text-sm font-semibold text-[#1F2937] mb-3">Profiel voltooien</p>
-            <div className="flex gap-4">
-              <div className={`flex-1 rounded-xl p-3 text-center text-xs font-medium border ${cvFile ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-[#E5E7EB] text-[#6B7280]"}`}>
-                {cvFile ? "✓ CV geüpload" : "○ CV uploaden"}
-              </div>
-              <div className={`flex-1 rounded-xl p-3 text-center text-xs font-medium border ${big5 ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-[#E5E7EB] text-[#6B7280]"}`}>
-                {big5 ? "✓ Big Five gedaan" : "○ Big Five test"}
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { label: "Gegevens", done: !!gegevens.volledige_naam && !!gegevens.telefoon && !!gegevens.geboortedatum },
+                { label: "CV uploaden", done: !!cvFile },
+                { label: "Big Five test", done: !!big5 },
+              ].map(({ label, done }) => (
+                <div key={label} className={`rounded-xl p-3 text-center text-xs font-medium border ${done ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-[#E5E7EB] text-[#6B7280]"}`}>
+                  {done ? `✓ ${label}` : `○ ${label}`}
+                </div>
+              ))}
             </div>
           </div>
         )}
+
+        {/* Persoonlijke gegevens */}
+        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6">
+          <h2 className="font-bold text-[#1E2A4A] mb-5">Persoonlijke gegevens</h2>
+          <form onSubmit={slaGegevensOp} className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-[#6B7280] mb-1">Volledige naam</label>
+                <input
+                  type="text"
+                  placeholder="Voor- en achternaam"
+                  value={gegevens.volledige_naam}
+                  onChange={(e) => setGegevens((g) => ({ ...g, volledige_naam: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6B7280] mb-1">Geboortedatum</label>
+                <input
+                  type="date"
+                  value={gegevens.geboortedatum}
+                  onChange={(e) => setGegevens((g) => ({ ...g, geboortedatum: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981] text-[#1F2937]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6B7280] mb-1">Telefoonnummer</label>
+                <input
+                  type="tel"
+                  placeholder="+31 6 12345678"
+                  value={gegevens.telefoon}
+                  onChange={(e) => setGegevens((g) => ({ ...g, telefoon: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#10B981]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6B7280] mb-1">E-mailadres</label>
+                <input
+                  type="email"
+                  value={gegevens.email}
+                  disabled
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E7EB] text-sm bg-[#F8FAFC] text-[#6B7280] cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={opslaan}
+                className="bg-[#10B981] hover:bg-[#059669] disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+              >
+                {opslaan ? "Opslaan..." : "Opslaan"}
+              </button>
+              {opslaanSucces && <span className="text-sm text-green-600">✓ Opgeslagen</span>}
+              {opslaanFout && <span className="text-sm text-red-500">{opslaanFout}</span>}
+            </div>
+          </form>
+        </div>
 
         {/* CV Upload */}
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6">
@@ -144,6 +262,7 @@ export default function ProfielPage() {
         <button onClick={uitloggen} className="text-sm text-[#6B7280] hover:text-red-500 transition-colors text-center">
           Uitloggen
         </button>
+
       </div>
     </div>
   );
