@@ -36,6 +36,10 @@ export default function ProfielPage() {
   const [opslaanSucces, setOpslaanSucces] = useState(false);
   const [opslaanFout, setOpslaanFout] = useState("");
 
+  const [toonVerwijderBevestiging, setToonVerwijderBevestiging] = useState(false);
+  const [verwijderen, setVerwijderen] = useState(false);
+  const [verwijderFout, setVerwijderFout] = useState("");
+
   useEffect(() => {
     const laadProfiel = async () => {
       const supabase = createClient();
@@ -72,10 +76,12 @@ export default function ProfielPage() {
   }, [router]);
 
   const uitloggen = async () => {
+    const supabase = createClient();
     try {
-      const supabase = createClient();
-      await supabase.auth.signOut({ scope: "local" });
+      await supabase.auth.signOut({ scope: "global" });
     } catch {}
+    // Reset singleton zodat volgende paginalading een verse client krijgt
+    globalThis._supabaseClient = undefined;
     window.location.href = "/";
   };
 
@@ -101,11 +107,28 @@ export default function ProfielPage() {
     } else {
       setOpslaanSucces(true);
       setTimeout(() => setOpslaanSucces(false), 3000);
-      // Update displaynaam
       if (gegevens.volledige_naam) {
         setUser((u) => u ? { ...u, naam: gegevens.volledige_naam } : u);
       }
     }
+  };
+
+  const verwijderAccount = async () => {
+    setVerwijderen(true);
+    setVerwijderFout("");
+
+    const res = await fetch("/api/account", { method: "DELETE" });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setVerwijderFout(data.error ?? "Verwijderen mislukt. Probeer het opnieuw.");
+      setVerwijderen(false);
+      return;
+    }
+
+    // Account verwijderd — reset client en stuur naar homepagina
+    globalThis._supabaseClient = undefined;
+    window.location.href = "/";
   };
 
   if (loading) {
@@ -141,7 +164,7 @@ export default function ProfielPage() {
         {!profielCompleet && (
           <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5">
             <p className="text-sm font-semibold text-[#1F2937] mb-3">Profiel voltooien</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { label: "Gegevens", done: !!gegevens.volledige_naam && !!gegevens.telefoon && !!gegevens.geboortedatum },
                 { label: "CV uploaden", done: !!cvFile },
@@ -199,7 +222,6 @@ export default function ProfielPage() {
                 />
               </div>
             </div>
-
             <div className="flex items-center gap-3">
               <button
                 type="submit"
@@ -230,7 +252,6 @@ export default function ProfielPage() {
               </button>
             )}
           </div>
-
           {big5 ? (
             <>
               {!toonResultaten ? (
@@ -259,9 +280,47 @@ export default function ProfielPage() {
           )}
         </div>
 
-        <button onClick={uitloggen} className="text-sm text-[#6B7280] hover:text-red-500 transition-colors text-center">
-          Uitloggen
-        </button>
+        {/* Account acties */}
+        <div className="flex flex-col items-center gap-3 pb-4">
+          <button
+            onClick={uitloggen}
+            className="text-sm text-[#6B7280] hover:text-[#1F2937] transition-colors"
+          >
+            Uitloggen
+          </button>
+
+          {!toonVerwijderBevestiging ? (
+            <button
+              onClick={() => setToonVerwijderBevestiging(true)}
+              className="text-xs text-red-400 hover:text-red-600 transition-colors"
+            >
+              Account verwijderen
+            </button>
+          ) : (
+            <div className="w-full bg-red-50 border border-red-200 rounded-2xl p-5 flex flex-col gap-3">
+              <p className="text-sm font-semibold text-red-700">Weet je het zeker?</p>
+              <p className="text-xs text-red-600 leading-relaxed">
+                Je account, profiel, CV en alle gegevens worden permanent verwijderd. Dit kan niet ongedaan worden gemaakt.
+              </p>
+              {verwijderFout && <p className="text-xs text-red-600">{verwijderFout}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={verwijderAccount}
+                  disabled={verwijderen}
+                  className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  {verwijderen ? "Bezig..." : "Ja, verwijder mijn account"}
+                </button>
+                <button
+                  onClick={() => { setToonVerwijderBevestiging(false); setVerwijderFout(""); }}
+                  className="px-4 border border-red-200 text-red-600 text-sm font-medium py-2.5 rounded-xl hover:bg-red-100 transition-colors"
+                >
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
       </div>
     </div>
