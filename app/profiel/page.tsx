@@ -76,13 +76,15 @@ export default function ProfielPage() {
   }, [router]);
 
   const uitloggen = async () => {
-    const supabase = createClient();
     try {
+      const supabase = createClient();
       await supabase.auth.signOut({ scope: "global" });
-    } catch {}
-    // Reset singleton zodat volgende paginalading een verse client krijgt
-    globalThis._supabaseClient = undefined;
-    window.location.href = "/";
+    } catch {
+      // negeer fouten
+    } finally {
+      globalThis._supabaseClient = undefined;
+      window.location.replace("/");
+    }
   };
 
   const slaGegevensOp = async (e: React.FormEvent) => {
